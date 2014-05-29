@@ -1,13 +1,17 @@
 
 var ZooKeeper = require ("zookeeper");
 
+var tree= {};
+
 var zk = new ZooKeeper({
   connect: "localhost:2181"
  ,timeout: 1000
  ,debug_level: ZooKeeper.ZOO_LOG_LEVEL_WARN
  ,host_order_deterministic: false
+ ,data_as_buffer: false
 });
 
+/*
 function child2_cb (rc, error, children, stat) {
     console.log ("child2_cb: rc:%d, error:%s, children:%s, stat:%s", rc, error, children, JSON.stringify(stat));
     children.forEach(function (child) {
@@ -24,12 +28,24 @@ function data_cb (rc, error, stat, data) {
     console.log ("data_cb: rc:%d error:%s stat:%s data:%s", rc, error, JSON.stringify(stat), data);
 }
 
+*/
+
+function loadDir(path) {
+  zk.a_get_children2 ( path, true, function (rc, error, children, stat) {
+		if !rc
+			console.log("Error: %s", error);
+
+		children.forEach(function (child) {
+			console.log(child);
+		});
+	})
+}
 
 zk.connect(function (err) {
     if(err) throw err;
     console.log ("zk session established, id=%s", zk.client_id);
 
-    zk.aw_get_children2("/dpl", watch_cb, child2_cb);
+		loadDir("/");
 
 
 
