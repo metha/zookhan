@@ -1,7 +1,7 @@
 
 var ZooKeeper = require ("zookeeper");
 
-var tree= {};
+var nodes= {};
 
 var zk = new ZooKeeper({
   connect: "localhost:2181"
@@ -11,53 +11,68 @@ var zk = new ZooKeeper({
  ,data_as_buffer: false
 });
 
-/*
-function child2_cb (rc, error, children, stat) {
-    console.log ("child2_cb: rc:%d, error:%s, children:%s, stat:%s", rc, error, children, JSON.stringify(stat));
-    children.forEach(function (child) {
-        zk.a_get(child, false, data_cb);
-    });
-}
+function scanDir(path) {
+	// Get children
+	zk.aw_get_children2(path, function (type, state, path) {
+		//console.log("watch_cb: %s", path)
+	}, function (rc, error, children, stat) {
+		console.log("child2_cb: children: %s", children)
 
-function watch_cb (type, state, path) {
-    //zk.aw_get_children2("/dpl", watch_cb, child2_cb);
-    console.log ("watch_cb: type:%d, state:%d, path:%s", type, state, path);
-}
-
-function data_cb (rc, error, stat, data) {
-    console.log ("data_cb: rc:%d error:%s stat:%s data:%s", rc, error, JSON.stringify(stat), data);
-}
-
-*/
-
-function loadDir(path) {
-  zk.a_get_children2 ( path, true, function (rc, error, children, stat) {
-		if !rc
-			console.log("Error: %s", error);
-
+		// For each children
 		children.forEach(function (child) {
-			console.log(child);
+			// TODO: If child is new...
+			// Get info
+			zk.a_get(path + "/" + child, true, function data_cb(rc, error, stat, data) {
+				console.log("zk.a_get: " + path + "/" + child + ": " + data);
+				//TODO: Store info
+				nodes[path + "/" + child] = data;
+			})
+
+			zk.aw_exists (path + "/" + child, function watch_cb(type, state, path) {
+				console.log("watch_cb: path: %s type: %d state: %d", path, type, state)
+				if (type == ZooKeeper.ZOO_DELETED_EVENT) {
+					console.log("Delete!");
+					delete nodes[path];
+				}
+			}, function (rc, error, stat) {
+				console.log("stat_cb: " + stat);
+			})
 		});
-	})
+	});
 }
 
 zk.connect(function (err) {
-    if(err) throw err;
-    console.log ("zk session established, id=%s", zk.client_id);
+  if(err) throw err;
+  console.log ("zk session established, id=%s", zk.client_id);
 
-		loadDir("/");
+	var path = "/dpl"
 
+	// Get children
+	zk.aw_get_children2("/dpl", function (type, state, path) {
+		//console.log("watch_cb: %s", path)
+	}, function (rc, error, children, stat) {
+		console.log("child2_cb: children: %s", children)
 
+		// For each children
+		children.forEach(function (child) {
+			// TODO: If child is new...
+			// Get info
+			zk.a_get(path + "/" + child, true, function data_cb(rc, error, stat, data) {
+				console.log("zk.a_get: " + path + "/" + child + ": " + data);
+				//TODO: Store info
+				nodes[path + "/" + child] = data;
+			})
 
-//    zk.a_create ("/dpl/node.js1", "some value", ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL, function (rc, error, path)  {
-//        if (rc != 0) {
-//            console.log ("Error: zk node create result: %d, error: '%s', path=%s", rc, error, path);
-//        } else {
-//            console.log ("created zk node %s", path);
-//            process.nextTick(function () {
-//                zk.close ();
-//            });
-//        }
-//    });
+			zk.aw_exists (path + "/" + child, function watch_cb(type, state, path) {
+				console.log("watch_cb: path: %s type: %d state: %d", path, type, state)
+				if (type == ZooKeeper.ZOO_DELETED_EVENT) {
+					console.log("Delete!");
+					delete nodes[path];
+				}
+			}, function (rc, error, stat) {
+				console.log("stat_cb: " + stat);
+			})
+		});
+	});
 });
 
