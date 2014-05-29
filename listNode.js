@@ -11,31 +11,37 @@ var zk = new ZooKeeper({
  ,data_as_buffer: false
 });
 
-function scanDir(path) {
+function watchDir(path) {
 	// Get children
 	zk.aw_get_children2(path, function (type, state, path) {
 		//console.log("watch_cb: %s", path)
+		if (type == ZooKeeper.ZOO_CREATED_EVENT || type == ZooKeeper.ZOO_CHANGED_EVENT) {
+			console.log("Dir Event: %d (ZOO_CREATED_EVENT: %d, ZOO_CHANGED_EVENT: %d)", type, ZooKeeper.ZOO_CREATED_EVENT, ZooKeeper.ZOO_CHANGED_EVENT);
+			watchDir(path);
+		}
 	}, function (rc, error, children, stat) {
-		console.log("child2_cb: children: %s", children)
+		console.log("Listed children: %s", children)
 
 		// For each children
 		children.forEach(function (child) {
 			// TODO: If child is new...
 			// Get info
 			zk.a_get(path + "/" + child, true, function data_cb(rc, error, stat, data) {
-				console.log("zk.a_get: " + path + "/" + child + ": " + data);
+				console.log("Node info: " + path + "/" + child + ": " + data);
 				//TODO: Store info
 				nodes[path + "/" + child] = data;
 			})
 
 			zk.aw_exists (path + "/" + child, function watch_cb(type, state, path) {
-				console.log("watch_cb: path: %s type: %d state: %d", path, type, state)
+				console.log("Node Event: path: %s type: %d state: %d", path, type, state)
 				if (type == ZooKeeper.ZOO_DELETED_EVENT) {
-					console.log("Delete!");
+					console.log("Node Event: %s deleted", path);
 					delete nodes[path];
+				} else {
+					console.log("Node Event: %s unmanaged event type: %s", type);
 				}
 			}, function (rc, error, stat) {
-				console.log("stat_cb: " + stat);
+				console.log("Node Stat: " + stat);
 			})
 		});
 	});
@@ -47,32 +53,7 @@ zk.connect(function (err) {
 
 	var path = "/dpl"
 
-	// Get children
-	zk.aw_get_children2("/dpl", function (type, state, path) {
-		//console.log("watch_cb: %s", path)
-	}, function (rc, error, children, stat) {
-		console.log("child2_cb: children: %s", children)
+	watchDir(path);
 
-		// For each children
-		children.forEach(function (child) {
-			// TODO: If child is new...
-			// Get info
-			zk.a_get(path + "/" + child, true, function data_cb(rc, error, stat, data) {
-				console.log("zk.a_get: " + path + "/" + child + ": " + data);
-				//TODO: Store info
-				nodes[path + "/" + child] = data;
-			})
-
-			zk.aw_exists (path + "/" + child, function watch_cb(type, state, path) {
-				console.log("watch_cb: path: %s type: %d state: %d", path, type, state)
-				if (type == ZooKeeper.ZOO_DELETED_EVENT) {
-					console.log("Delete!");
-					delete nodes[path];
-				}
-			}, function (rc, error, stat) {
-				console.log("stat_cb: " + stat);
-			})
-		});
-	});
 });
 
