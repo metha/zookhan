@@ -11,38 +11,71 @@ var zk = new ZooKeeper({
  ,data_as_buffer: false
 });
 
+function watchNode(path) {
+	console.log("Node info: " + path + " add watcher");
+
+	zk.aw_get (path, function watch_cb(type, state, path) {
+		//If the node disappeared
+		if (ZooKeeper.ZOO_DELETED_EVENT == type) {
+			console.log("Node Event: %s lost", path);
+			// Remove it from the pool
+			delete nodes[path];
+			return;
+		}
+
+		watchNode(path); // Adding the watcher as soon as possible
+
+		if (ZooKeeper.ZOO_CHANGED_EVENT == type) {
+			//console.log("Node Event: %s changed", path);
+		} else {
+			console.log("Node Event: %s unmanaged event type: %s", path, type);
+		}
+	}, function (rc, error, stat, data) {
+		//data_cb
+		if (0 == rc) {
+			if (nodes[path] != data) {
+				//console.log("Node Event: %s data has been updated (new version: %d)", path, stat.version);
+				console.log("Node Event: %s (old data: %s) (new data: %s)", path, nodes[path], data);
+				nodes[path] = data;
+console.log("nodes:");
+Object.keys(nodes).forEach(function (key) {
+	console.log("       key: " + key + " value: " + nodes[key]);
+	console.log("       key: " + key + " address: " + JSON.parse(nodes[key]).address);
+});
+			}
+			else
+				console.log("Node Event: %s no data change", path);
+		}
+	});
+}
+
 function watchDir(path) {
 	// Get children
 	zk.aw_get_children2(path, function (type, state, path) {
-		//console.log("watch_cb: %s", path)
-		if (type == ZooKeeper.ZOO_CREATED_EVENT || type == ZooKeeper.ZOO_CHANGED_EVENT) {
-			console.log("Dir Event: %d (ZOO_CREATED_EVENT: %d, ZOO_CHANGED_EVENT: %d)", type, ZooKeeper.ZOO_CREATED_EVENT, ZooKeeper.ZOO_CHANGED_EVENT);
-			watchDir(path);
-		}
+		//watch_cb
+		watchDir(path);
+
+		if (ZooKeeper.ZOO_CHILD_EVENT == type)
+			console.log("Dir Event: %s ZOO_CHILD_EVENT", path);
+		else if (ZooKeeper.ZOO_SESSION_EVENT == type)
+			console.log("Dir Event: %s ZOO_SESSION_EVENT", path);
+		else
+			console.log("Dir Event: %s unmanaged event type: %s", path, type);
+
 	}, function (rc, error, children, stat) {
-		console.log("Listed children: %s", children)
+		// child2_cb
+		console.log("Dir  info: %s children: %s", path, children)
 
 		// For each children
 		children.forEach(function (child) {
-			// TODO: If child is new...
-			// Get info
-			zk.a_get(path + "/" + child, true, function data_cb(rc, error, stat, data) {
-				console.log("Node info: " + path + "/" + child + ": " + data);
-				//TODO: Store info
-				nodes[path + "/" + child] = data;
-			})
-
-			zk.aw_exists (path + "/" + child, function watch_cb(type, state, path) {
-				console.log("Node Event: path: %s type: %d state: %d", path, type, state)
-				if (type == ZooKeeper.ZOO_DELETED_EVENT) {
-					console.log("Node Event: %s deleted", path);
-					delete nodes[path];
-				} else {
-					console.log("Node Event: %s unmanaged event type: %s", type);
-				}
-			}, function (rc, error, stat) {
-				console.log("Node Stat: " + stat);
-			})
+			// If node already known
+			if (nodes[path + "/" + child]) {
+				console.log("Node info: " + path + "/" + child + " is already known");
+				// Do nothing
+				return
+			}
+			// Else add a watcher on it
+			watchNode(path + "/" + child);
 		});
 	});
 }
@@ -54,6 +87,5 @@ zk.connect(function (err) {
 	var path = "/dpl"
 
 	watchDir(path);
-
 });
 
