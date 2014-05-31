@@ -2,6 +2,7 @@
 var ZooKeeper = require ("zookeeper");
 
 var nodes= {};
+var	updateNodes = false;
 
 var zk = new ZooKeeper({
   connect: "localhost:2181"
@@ -41,17 +42,23 @@ function watchNode(path) {
 			if (nodes[path].data != data) {
 				//console.log("Node Event: %s data has been updated (new version: %d)", path, stat.version);
 
-				// Analyze qs json the data
+				// Analyze as json the data
 				try {
 					obj = JSON.parse(data);
-					if (obj.address != nodes[path].address) {
-						nodes[path] = obj;
-						console.log("Node info : %s data updated to %s", path, JSON.stringify(nodes[path]));
-					}
 				} catch (e) {
 					console.log("Node info : %s data parse error %s", path, e);
 				}
-				// Whatever happen, store the data
+
+				// Connector to update
+				if (obj.address != nodes[path].address) {
+					// On the next iteration, haproxy conf will be regenerated
+					updateNodes = true;
+				}
+				nodes[path] = obj;
+				console.log("Node info : %s data updated to %s", path, JSON.stringify(nodes[path]));
+				//}
+
+				// Whatever happenis, store the data
 				nodes[path].data = data;
 			}
 			else
@@ -90,6 +97,17 @@ function watchDir(path) {
 		});
 	});
 }
+
+// Pool the changes of haprox config and regenerate the conf if updateNodes is set
+setInterval(function () {
+	if (updateNodes) {
+		console.log("Oh oh It's time to generate HAProxy config");
+		updateNodes = false;
+	}
+	else
+		console.log("HAProxy ok, I return to sleep");
+}, 9000);
+
 
 zk.connect(function (err) {
   if(err) throw err;
