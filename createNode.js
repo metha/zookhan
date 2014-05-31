@@ -24,17 +24,15 @@ zk.connect(function (err) {
         } else {
             console.log ("created zk node %s", path);
 
-
-/*
 						setInterval(function () {
 							console.log ("path: %s", path);
-							zk.a_set(path, "Updated data version " + version, version, function (rc, error, stat) {
+							//version
+							zk.a_set(path, '{ "id":"plop", "address":"tcp://wub-test107.neofonie.de:60619" }', version, function (rc, error, stat) {
 								//stat_cb
 								version++;
 								console.log ("Update data: %s", error);
 							});
 						}, 5000);
-*/
         }
     });
 });
