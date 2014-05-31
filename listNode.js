@@ -33,15 +33,26 @@ function watchNode(path) {
 	}, function (rc, error, stat, data) {
 		//data_cb
 		if (0 == rc) {
-			if (nodes[path] != data) {
+			// If node unknown, create it empty
+			if ( ! nodes[path])
+				nodes[path] = {};
+
+			// If data of the node changes
+			if (nodes[path].data != data) {
 				//console.log("Node Event: %s data has been updated (new version: %d)", path, stat.version);
-				console.log("Node Event: %s (old data: %s) (new data: %s)", path, nodes[path], data);
-				nodes[path] = data;
-console.log("nodes:");
-Object.keys(nodes).forEach(function (key) {
-	console.log("       key: " + key + " value: " + nodes[key]);
-	console.log("       key: " + key + " address: " + JSON.parse(nodes[key]).address);
-});
+
+				// Analyze qs json the data
+				try {
+					obj = JSON.parse(data);
+					if (obj.address != nodes[path].address) {
+						nodes[path] = obj;
+						console.log("Node info : %s data updated to %s", path, JSON.stringify(nodes[path]));
+					}
+				} catch (e) {
+					console.log("Node info : %s data parse error %s", path, e);
+				}
+				// Whatever happen, store the data
+				nodes[path].data = data;
 			}
 			else
 				console.log("Node Event: %s no data change", path);
